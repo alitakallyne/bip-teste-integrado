@@ -1,9 +1,12 @@
 package com.example.ejb;
 
-import jakarta.ejb.Stateless;
+
 import jakarta.persistence.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
 
 import com.example.ejb.exception.ConcorrenciaDetectadaException;
 import com.example.ejb.exception.ContaNaoEncontradaException;
@@ -12,17 +15,17 @@ import com.example.ejb.exception.TransferenciaNaoPermitidaException;
 
 import java.math.BigDecimal;
 
-@Stateless
+@Service
+@Component
 public class BeneficioEjbService {
 
     private static final Logger log = LoggerFactory.getLogger(BeneficioEjbService.class);
 
-    @PersistenceContext
+    @Autowired
     private EntityManager entityManager;
 
-    /**
-     * Realiza transferência entre duas contas de benefício.
-     */
+
+   
     public void realizarTransferencia(Long origemId, Long destinoId, BigDecimal valor) {
         validarParametros(origemId, destinoId, valor);
 
@@ -37,8 +40,9 @@ public class BeneficioEjbService {
         }
 
         try {
-            BeneficioEjbService origem = buscarContaPorId(origemId);
-            BeneficioEjbService destino = buscarContaPorId(destinoId);
+           
+            Beneficio origem = buscarContaPorId(origemId);
+            Beneficio destino = buscarContaPorId(destinoId);
 
             log.debug("[EJB] Contas encontradas - ORIGEM: {} (versão={}), DESTINO: {} (versão={})",
                     origem.getNome(), origem.getVersao(), destino.getNome(), destino.getVersao());
@@ -46,16 +50,16 @@ public class BeneficioEjbService {
             origem.verificarAtiva();
             destino.verificarAtiva();
 
-            // Lock otimista
+           
             entityManager.lock(origem, LockModeType.OPTIMISTIC_FORCE_INCREMENT);
             entityManager.lock(destino, LockModeType.OPTIMISTIC_FORCE_INCREMENT);
 
-            // Validação de saldo
+            
             if (origem.getSaldo().compareTo(valor) < 0) {
                 throw new SaldoInsuficienteException("Saldo insuficiente na conta de origem.");
             }
 
-            // Debitar e creditar
+          
             origem.debitar(valor);
             destino.creditar(valor);
 
@@ -67,7 +71,7 @@ public class BeneficioEjbService {
                     origemId, origem.getSaldo(), origem.getVersao(),
                     destinoId, destino.getSaldo(), destino.getVersao());
 
-        } catch (OptimisticLockException e) {
+        } catch (ConcorrenciaDetectadaException e) {
             log.warn("[EJB] Conflito de concorrência na transferência: ORIGEM={}, DESTINO={}", origemId, destinoId);
             throw new ConcorrenciaDetectadaException("Conflito de concorrência detectado", e);
 
@@ -81,9 +85,9 @@ public class BeneficioEjbService {
         }
     }
 
-    private BeneficioEjbService buscarContaPorId(Long id) {
+    private Beneficio buscarContaPorId(Long id) {
         log.debug("[EJB] Buscando conta de benefício ID={}", id);
-        BeneficioEjbService conta = entityManager.find(BeneficioEjbService.class, id, LockModeType.OPTIMISTIC);
+        Beneficio conta = entityManager.find(Beneficio.class, id, LockModeType.OPTIMISTIC);
         if (conta == null) {
             log.error("[EJB] Conta não encontrada ID={}", id);
             throw new ContaNaoEncontradaException(id);

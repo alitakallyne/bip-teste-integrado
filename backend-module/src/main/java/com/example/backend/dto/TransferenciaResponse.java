@@ -1,4 +1,4 @@
-// dto/TransferenciaResponse.java
+
 package com.example.backend.dto;
 
 import java.math.BigDecimal;

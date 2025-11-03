@@ -1,12 +1,12 @@
-// dto/BeneficioDTO.java
+
 package com.example.backend.dto;
 
 import java.math.BigDecimal;
 
-public record BeneficioDTO(
+public record BeneficioResponse(
         Long id,
         String nome,
         String descricao,
-        BigDecimal valor,
+        BigDecimal saldo,
         Boolean ativo
 ) {}

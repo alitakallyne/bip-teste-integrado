@@ -1,49 +1,75 @@
-// service/BeneficioService.java
 package com.example.backend.service;
 
 import com.example.backend.dto.*;
-import com.example.backend.exception.BusinessException;
 import com.example.backend.mapper.BeneficioMapper;
-import com.example.beneficioejb.service.BeneficioEjbService;
-import jakarta.ejb.EJB;
+import com.example.backend.repository.BeneficioRepository;
+import com.example.ejb.Beneficio;
+import com.example.ejb.BeneficioEjbService;
+
+
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 
 @Service
 public class BeneficioService {
 
-    @EJB
+  
+	@Autowired
     private BeneficioEjbService beneficioEjbService;
 
-    public List<BeneficioDTO> listarTodos() {
-        return beneficioEjbService.listarTodos()
+    @Autowired
+    private BeneficioRepository beneficioRepository;
+    
+
+
+    public List<BeneficioResponse> getAllBeneficios() {
+        return beneficioRepository.findAll()
                 .stream()
-                .map(BeneficioMapper::toDTO)
+                .map(BeneficioMapper::toResponse)
                 .toList();
     }
 
-    public BeneficioDTO criar(BeneficioCreateRequest request) {
-        var entity = BeneficioMapper.toEntity(request);
-        var salvo = beneficioEjbService.salvar(entity);
-        return BeneficioMapper.toDTO(salvo);
+    public BeneficioResponse getBeneficioById(Long id) {
+        Beneficio beneficio = beneficioRepository.findByIdAndAtivaTrue(id)
+                .orElseThrow(() -> new IllegalArgumentException("Benefício não encontrado"));
+        return BeneficioMapper.toResponse(beneficio);
     }
 
-    public TransferenciaResponse transferir(TransferenciaRequest request) {
-        try {
-            beneficioEjbService.transferir(
-                    request.idOrigem(),
-                    request.idDestino(),
-                    request.valor(),
-                    request.idempotencyKey()
-            );
-            return new TransferenciaResponse(
-                    request.idOrigem(),
-                    request.idDestino(),
-                    request.valor(),
-                    "Transferência realizada com sucesso!"
-            );
-        } catch (Exception e) {
-            throw new BusinessException("Erro ao processar transferência: " + e.getMessage());
-        }
+    @Transactional
+    public BeneficioResponse createBeneficio(BeneficioRequest request) {
+        Beneficio entity = BeneficioMapper.toEntity(request);
+        Beneficio saved = beneficioRepository.save(entity);
+        return BeneficioMapper.toResponse(saved);
+    }
+
+    @Transactional
+    public BeneficioResponse updateBeneficio(Long id, BeneficioRequest request) {
+        Beneficio beneficio = beneficioRepository.findByIdAndAtivaTrue(id)
+                .orElseThrow(() -> new IllegalArgumentException("Benefício não encontrado"));
+        beneficio.setNome(request.nome());
+        beneficio.setDescricao(request.descricao());
+        beneficio.setSaldo(request.saldo());
+        Beneficio updated = beneficioRepository.save(beneficio);
+        return BeneficioMapper.toResponse(updated);
+    }
+
+    @Transactional
+    public void deactivateBeneficio(Long id) {
+        Beneficio beneficio = beneficioRepository.findByIdAndAtivaTrue(id)
+                .orElseThrow(() -> new IllegalArgumentException("Benefício não encontrado"));
+        beneficio.setAtiva(false);
+        beneficioRepository.save(beneficio);
+    }
+
+    @Transactional
+    public void transferirValor(TransferenciaRequest request) {
+    	System.out.println("Recebido TransferenciaRequest: {}"+request);
+        beneficioEjbService.realizarTransferencia(               
+                request.idOrigem(),
+                request.idDestino(),
+                request.valor()
+        );
     }
 }
